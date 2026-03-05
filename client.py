@@ -222,20 +222,25 @@ class ClientApp:
     
     def receive_messages(self):
         """Receive messages from server"""
+        print(f"Receive thread started, connected={self.connected}, running={self.running}")
         while self.connected and self.running:
             try:
                 message = receive_message(self.socket)
                 if not message:
+                    print("Received empty message, breaking")
                     break
                 
                 msg_type = message.get('type')
+                print(f"Received message type: {msg_type}")
                 
                 if msg_type == MessageTypes.INITIAL_STATE:
                     # Load initial state
                     players_data = message.get('players', [])
+                    print(f"Initial state contains {len(players_data)} players")
                     for p_data in players_data:
                         player = Player.from_dict(p_data)
                         self.players[player.id] = player
+                        print(f"Added player {player.id} at position {player.position}")
                     print(f"Received initial state with {len(self.players)} players")
                 
                 elif msg_type == MessageTypes.MOVE_CONFIRM:
@@ -343,7 +348,10 @@ class ClientApp:
                 player.radius,
                 player.color,
                 view,
-                projection
+                projection,
+                self.light_pos,
+                self.light_color,
+                self.camera.position
             )
         
         # Render UI

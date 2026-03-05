@@ -151,9 +151,8 @@ class ServerApp:
                 msg_type = message.get('type')
                 
                 if msg_type == MessageTypes.JOIN_REQUEST:
-                    # Create new player
-                    player_id = self.next_player_id
-                    self.next_player_id += 1
+                    # Use the player_id from the client's join request
+                    player_id = message.get('player_id')
                     
                     player = Player(
                         player_id=player_id,
@@ -163,6 +162,7 @@ class ServerApp:
                     self.clients[player_id] = client_socket
                     
                     print(f"Player {player_id} joined from {addr}")
+                    print(f"Player created at position: {player.position}")
                     
                     # Simulate delay
                     time.sleep(self.client_delay)
@@ -170,7 +170,9 @@ class ServerApp:
                     
                     # Send initial state to new client
                     initial_state = pack_initial_state(list(self.players.values()))
+                    print(f"Sending initial state with {len(self.players)} players")
                     client_socket.sendall(initial_state)
+                    print(f"Initial state sent successfully")
                     
                     # Broadcast new player to existing clients
                     player_joined = pack_player_joined(player)

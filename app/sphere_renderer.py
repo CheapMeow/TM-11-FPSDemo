@@ -110,7 +110,7 @@ class SphereRenderer:
         
         glBindVertexArray(0)
     
-    def render(self, position, radius, color, view, projection):
+    def render(self, position, radius, color, view, projection, light_pos=None, light_color=None, camera_pos=None):
         """Render a single sphere"""
         glUseProgram(self.shader)
         
@@ -141,6 +141,30 @@ class SphereRenderer:
         glUniform3f(
             glGetUniformLocation(self.shader, "albedo"),
             color.x, color.y, color.z
+        )
+        
+        # Light uniforms
+        if light_pos is None:
+            light_pos = glm.vec3(3.0, 4.0, 3.0)
+        if light_color is None:
+            light_color = glm.vec3(1.0, 1.0, 1.0)
+        
+        glUniform3f(
+            glGetUniformLocation(self.shader, "lightPositions[0]"),
+            light_pos.x, light_pos.y, light_pos.z
+        )
+        glUniform3f(
+            glGetUniformLocation(self.shader, "lightColors[0]"),
+            light_color.x * 10.0, light_color.y * 10.0, light_color.z * 10.0
+        )
+        
+        # Camera position
+        if camera_pos is None:
+            camera_pos = glm.vec3(0.0, 5.0, 10.0)
+        
+        glUniform3f(
+            glGetUniformLocation(self.shader, "camPos"),
+            camera_pos.x, camera_pos.y, camera_pos.z
         )
         
         glBindVertexArray(self.vao)
