@@ -69,6 +69,10 @@ class ClientApp:
         self.mouse_last_x = 0.0
         self.mouse_last_y = 0.0
         self.mouse_first = True
+        
+        # Reconnection timer
+        self.reconnect_timer = 0.0
+        self.reconnect_interval = 1.0  # Try to reconnect every 1 second
     
     def check_server_available(self):
         """Check if server is available"""
@@ -227,7 +231,7 @@ class ClientApp:
             try:
                 message = receive_message(self.socket)
                 if not message:
-                    print("Received empty message, breaking")
+                    print("Connection closed by server")
                     break
                 
                 msg_type = message.get('type')
@@ -275,10 +279,54 @@ class ClientApp:
                 
             except Exception as e:
                 if self.connected:
-                    print(f"Error receiving message: {e}")
+                    print(f"Connection lost: {e}")
                 break
         
         self.connected = False
+        print(f"Receive thread ended, will attempt to reconnect...")
+    
+    def attempt_reconnect(self):
+        """Attempt to reconnect to server"""
+        # Check if server is available
+        if not self.check_server_available():
+            return False
+        
+        try:
+            # Close old socket if exists
+            if self.socket:
+                try:
+                    self.socket.close()
+                except:
+                    pass
+            
+            # Create new connection
+            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.socket.connect((self.server_host, self.server_port))
+            
+            # Send join request (reuse existing player_id)
+            join_request = pack_join_request(self.local_player_id)
+            self.socket.sendall(join_request)
+            
+            # Clear old players (server will send new initial state)
+            self.players.clear()
+            self.can_move = True
+            
+            # Start new receive thread
+            receive_thread = threading.Thread(target=self.receive_messages)
+            receive_thread.daemon = True
+            receive_thread.start()
+            
+            self.connected = True
+            return True
+            
+        except Exception as e:
+            print(f"Reconnection failed: {e}")
+            if self.socket:
+                try:
+                    self.socket.close()
+                except:
+                    pass
+            return False
     
     def update(self):
         """Update client state"""
@@ -293,6 +341,15 @@ class ClientApp:
             self.fps = self.frame_count / self.fps_timer
             self.frame_count = 0
             self.fps_timer = 0.0
+        
+        # Check connection status and attempt reconnection if needed
+        if not self.connected and self.running:
+            self.reconnect_timer += self.delta_time
+            if self.reconnect_timer >= self.reconnect_interval:
+                self.reconnect_timer = 0.0
+                # Attempt to reconnect
+                if self.attempt_reconnect():
+                    print("Reconnected to server")
         
         # Check for input only if window is focused and connected
         if self.window_focused and self.connected and self.can_move and self.local_player_id in self.players:
