@@ -17,6 +17,7 @@ class MessageTypes:
     INITIAL_STATE = 0x12
     PLAYER_JOINED = 0x13
     PLAYER_LEFT = 0x14
+    DELAY_UPDATE = 0x15
 
 
 def pack_move_request(player_id, dx, dy, dz):
@@ -88,6 +89,17 @@ def pack_player_left(player_id):
     data = json.dumps({
         'type': MessageTypes.PLAYER_LEFT,
         'player_id': player_id
+    }).encode('utf-8')
+    length = struct.pack('!I', len(data))
+    return length + data
+
+
+def pack_delay_update(player_id, delay_ms):
+    """Pack delay update notification"""
+    data = json.dumps({
+        'type': MessageTypes.DELAY_UPDATE,
+        'player_id': player_id,
+        'delay_ms': delay_ms
     }).encode('utf-8')
     length = struct.pack('!I', len(data))
     return length + data

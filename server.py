@@ -14,6 +14,7 @@ from app.network_protocol import (
     pack_initial_state,
     pack_player_joined,
     pack_player_left,
+    pack_delay_update,
     receive_message
 )
 import imgui
@@ -27,17 +28,15 @@ class ServerApp:
         self.host = host
         self.port = port
         self.socket = None
-        self.clients = {}
-        self.players = {}
+        self.clients = {}  # player_id -> socket
+        self.players = {}  # player_id -> Player
+        self.client_delays = {}  # player_id -> delay in seconds
         self.running = False
         
         self.next_player_id = 1
         
         # Server UI settings
         self.move_speed = 5.0
-        self.client_delay = 0.05  # 50ms simulated delay
-        self.process_delay = 0.02  # 20ms process delay
-        self.send_delay = 0.03     # 30ms send delay
         self.show_server_ui = True
         
         # ImGui
@@ -160,13 +159,14 @@ class ServerApp:
                     )
                     self.players[player_id] = player
                     self.clients[player_id] = client_socket
+                    # Set default delay for new client (50ms)
+                    self.client_delays[player_id] = 0.05
                     
                     print(f"Player {player_id} joined from {addr}")
                     print(f"Player created at position: {player.position}")
                     
-                    # Simulate delay
-                    time.sleep(self.client_delay)
-                    time.sleep(self.process_delay)
+                    # Simulate delay for this client
+                    time.sleep(self.client_delays[player_id])
                     
                     # Send initial state to new client
                     initial_state = pack_initial_state(list(self.players.values()))
@@ -178,12 +178,12 @@ class ServerApp:
                     player_joined = pack_player_joined(player)
                     for pid, sock in self.clients.items():
                         if pid != player_id:
+                            # Simulate delay for each target client
+                            time.sleep(self.client_delays[pid])
                             try:
                                 sock.sendall(player_joined)
                             except:
                                 pass
-                    
-                    time.sleep(self.send_delay)
                 
                 elif msg_type == MessageTypes.MOVE_REQUEST:
                     player_id = message.get('player_id')
@@ -199,13 +199,14 @@ class ServerApp:
                         player.position.y += dy
                         player.position.z += dz
                         
-                        # Simulate delays
-                        time.sleep(self.client_delay)
-                        time.sleep(self.process_delay)
+                        # Simulate delay from client to server
+                        time.sleep(self.client_delays[player_id])
                         
                         # Send confirmation to requesting client
                         confirm = pack_move_confirm(player_id, player.position)
                         try:
+                            # Simulate delay from server to this client
+                            time.sleep(self.client_delays[player_id])
                             client_socket.sendall(confirm)
                         except:
                             break
@@ -214,12 +215,12 @@ class ServerApp:
                         broadcast = pack_state_broadcast(player_id, player.position)
                         for pid, sock in self.clients.items():
                             if pid != player_id:
+                                # Simulate delay from server to each target client
+                                time.sleep(self.client_delays[pid])
                                 try:
                                     sock.sendall(broadcast)
                                 except:
                                     pass
-                        
-                        time.sleep(self.send_delay)
                 
         except Exception as e:
             print(f"Error handling client {addr}: {e}")
@@ -229,6 +230,8 @@ class ServerApp:
                 del self.players[player_id]
             if player_id and player_id in self.clients:
                 del self.clients[player_id]
+            if player_id and player_id in self.client_delays:
+                del self.client_delays[player_id]
             
             # Broadcast player left
             if player_id:
@@ -270,15 +273,6 @@ class ServerApp:
         imgui.text(f"Total Players: {len(self.players)}")
         imgui.separator()
         
-        # Delay settings
-        if imgui.collapsing_header("Network Delay Simulation"):
-            _, self.client_delay = imgui.slider_float("Client Delay (ms)", self.client_delay * 1000, 0, 200)
-            self.client_delay /= 1000.0
-            _, self.process_delay = imgui.slider_float("Process Delay (ms)", self.process_delay * 1000, 0, 100)
-            self.process_delay /= 1000.0
-            _, self.send_delay = imgui.slider_float("Send Delay (ms)", self.send_delay * 1000, 0, 100)
-            self.send_delay /= 1000.0
-        
         # Game settings
         if imgui.collapsing_header("Game Settings"):
             _, self.move_speed = imgui.slider_float("Move Speed", self.move_speed, 1.0, 20.0)
@@ -287,12 +281,46 @@ class ServerApp:
             for player in self.players.values():
                 player.move_speed = self.move_speed
         
+        # Client delay settings
+        if imgui.collapsing_header("Client Delays (ms)"):
+            imgui.text("Enter delay for each client:")
+            imgui.separator()
+            
+            for pid in sorted(self.players.keys()):
+                current_delay_ms = int(self.client_delays.get(pid, 0.05) * 1000)
+                imgui.text(f"Player {pid}:")
+                imgui.same_line()
+                
+                # Create unique ID for input field
+                imgui.push_id(f"delay_{pid}")
+                delay_changed, new_delay_ms = imgui.input_int("##delay_input", current_delay_ms)
+                imgui.pop_id()
+                
+                if delay_changed:
+                    # Ensure delay is non-negative
+                    new_delay_ms = max(0, new_delay_ms)
+                    self.client_delays[pid] = new_delay_ms / 1000.0
+                    print(f"Updated delay for player {pid} to {new_delay_ms}ms")
+                    
+                    # Send delay update to the client
+                    if pid in self.clients:
+                        try:
+                            delay_update = pack_delay_update(pid, new_delay_ms)
+                            # Simulate delay before sending
+                            time.sleep(self.client_delays[pid])
+                            self.clients[pid].sendall(delay_update)
+                            print(f"Sent delay update to player {pid}")
+                        except Exception as e:
+                            print(f"Failed to send delay update to player {pid}: {e}")
+        
         # Player list
         if imgui.collapsing_header("Players"):
             for pid, player in self.players.items():
                 if imgui.tree_node(f"Player {pid}"):
                     pos = player.position
+                    delay_ms = int(self.client_delays.get(pid, 0.05) * 1000)
                     imgui.text(f"Position: ({pos.x:.2f}, {pos.y:.2f}, {pos.z:.2f})")
+                    imgui.text(f"Delay: {delay_ms}ms")
                     color = player.color
                     imgui.text(f"Color: ({color.x:.2f}, {color.y:.2f}, {color.z:.2f})")
                     imgui.tree_pop()

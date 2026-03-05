@@ -58,6 +58,9 @@ class ClientApp:
         self.move_direction = glm.vec3(0.0, 0.0, 0.0)
         self.can_move = True
         
+        # Network delay (in milliseconds, received from server)
+        self.network_delay_ms = 0
+        
         # Time
         self.last_time = 0.0
         self.delta_time = 0.0
@@ -277,6 +280,14 @@ class ClientApp:
                         del self.players[player_id]
                         print(f"Player {player_id} left")
                 
+                elif msg_type == MessageTypes.DELAY_UPDATE:
+                    # Delay update from server
+                    player_id = message.get('player_id')
+                    delay_ms = message.get('delay_ms', 0)
+                    if player_id == self.local_player_id:
+                        self.network_delay_ms = delay_ms
+                        print(f"Network delay updated to {delay_ms}ms")
+                
             except Exception as e:
                 if self.connected:
                     print(f"Connection lost: {e}")
@@ -430,6 +441,7 @@ class ClientApp:
         imgui.text(f"Local Player ID: {self.local_player_id}")
         imgui.text(f"Total Players: {len(self.players)}")
         imgui.text(f"Window Focused: {'Yes' if self.window_focused else 'No'}")
+        imgui.text(f"Network Delay: {self.network_delay_ms} ms (read-only)")
         imgui.separator()
         imgui.text("Controls (when focused):")
         imgui.bullet_text("W/S - Move forward/backward")
