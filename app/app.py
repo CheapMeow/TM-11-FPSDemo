@@ -198,47 +198,76 @@ class PBRApp:
         
         # Sphere controls
         if imgui.collapsing_header("Sphere Position", True):
+            imgui.push_id("sphere_position")
             pos = [self.scene.sphere_pos.x, self.scene.sphere_pos.y, self.scene.sphere_pos.z]
             changed, pos = imgui.slider_float3("Position", pos[0], pos[1], pos[2], -10.0, 10.0)
             if changed:
                 self.scene.sphere_pos = glm.vec3(pos[0], pos[1], pos[2])
+            imgui.pop_id()
 
         if imgui.collapsing_header("PBR Material", True):
+            imgui.push_id("material_albedo")
             albedo = [self.scene.albedo.x, self.scene.albedo.y, self.scene.albedo.z]
             changed, albedo = imgui.color_edit3("Albedo", albedo[0], albedo[1], albedo[2])
             if changed:
                 self.scene.albedo = glm.vec3(albedo[0], albedo[1], albedo[2])
+            imgui.pop_id()
 
+            imgui.push_id("material_metallic")
             changed, self.scene.metallic = imgui.slider_float("Metallic", self.scene.metallic, 0.0, 1.0)
+            imgui.pop_id()
+
+            imgui.push_id("material_roughness")
             changed, self.scene.roughness = imgui.slider_float("Roughness", self.scene.roughness, 0.01, 1.0)
+            imgui.pop_id()
+
+            imgui.push_id("material_ao")
             changed, self.scene.ao = imgui.slider_float("AO", self.scene.ao, 0.0, 1.0)
+            imgui.pop_id()
 
         # Light controls
         if imgui.collapsing_header("Light", True):
+            imgui.push_id("light_position")
             light_pos = [self.scene.light_pos.x, self.scene.light_pos.y, self.scene.light_pos.z]
             changed, light_pos = imgui.slider_float3("Position", light_pos[0], light_pos[1], light_pos[2], -10.0, 10.0)
             if changed:
                 self.scene.light_pos = glm.vec3(light_pos[0], light_pos[1], light_pos[2])
+            imgui.pop_id()
 
+            imgui.push_id("light_color")
             light_color = [self.scene.light_color.x, self.scene.light_color.y, self.scene.light_color.z]
             changed, light_color = imgui.color_edit3("Color", light_color[0], light_color[1], light_color[2])
             if changed:
                 self.scene.light_color = glm.vec3(light_color[0], light_color[1], light_color[2])
+            imgui.pop_id()
 
+            imgui.push_id("light_intensity")
             changed, self.scene.light_intensity = imgui.slider_float("Intensity", self.scene.light_intensity, 0.0, 50.0)
-            
+            imgui.pop_id()
+
             imgui.text("Attenuation")
+
+            imgui.push_id("light_constant")
             _, self.scene.light_attenuation_const = imgui.slider_float("Constant", self.scene.light_attenuation_const, 0.0, 2.0)
+            imgui.pop_id()
+
+            imgui.push_id("light_linear")
             _, self.scene.light_attenuation_linear = imgui.slider_float("Linear", self.scene.light_attenuation_linear, 0.0, 1.0)
+            imgui.pop_id()
+
+            imgui.push_id("light_quadratic")
             _, self.scene.light_attenuation_quad = imgui.slider_float("Quadratic", self.scene.light_attenuation_quad, 0.0, 1.0)
+            imgui.pop_id()
         
         # Camera controls
         if imgui.collapsing_header("Camera", True):
-            cam_pos = [self.camera.position.x, self.camera.position.y, self.camera.position.z]
-            imgui.text(f"Position: {cam_pos[0]:.2f}, {cam_pos[1]:.2f}, {cam_pos[2]:.2f}")
-            
+            imgui.push_id("camera_fov")
             _, self.camera.fov = imgui.slider_float("FOV", self.camera.fov, 30.0, 120.0)
+            imgui.pop_id()
+
+            imgui.push_id("camera_speed")
             _, self.camera.move_speed = imgui.slider_float("Speed", self.camera.move_speed, 0.5, 10.0)
+            imgui.pop_id()
         
         # Instructions
         imgui.separator()
