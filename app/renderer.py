@@ -1,6 +1,7 @@
 """
 Renderer: handles shader compilation, geometry creation, and rendering
 """
+
 from OpenGL.GL import *
 from OpenGL.GL.shaders import compileProgram, compileShader
 import numpy as np
@@ -12,27 +13,27 @@ from app.camera import Camera
 class Renderer:
     def __init__(self, scene):
         self.scene = scene
-        
+
         # Shaders
         self.pbr_shader = None
         self.grid_shader = None
         self.light_shader = None
-        
+
         # VAOs and VBOs
         self.sphere_vao = None
         self.sphere_vbo = None
         self.sphere_ebo = None
         self.sphere_index_count = 0
-        
+
         self.grid_vao = None
         self.grid_vbo = None
         self.grid_vertex_count = 0
-        
+
         self.light_vao = None
         self.light_vbo = None
         self.light_ebo = None
         self.light_index_count = 0
-        
+
         self.init_shaders()
         self.init_geometry()
 
@@ -42,21 +43,21 @@ class Renderer:
         pbr_fs = self.pbr_fragment_shader_source()
         self.pbr_shader = compileProgram(
             compileShader(pbr_vs, GL_VERTEX_SHADER),
-            compileShader(pbr_fs, GL_FRAGMENT_SHADER)
+            compileShader(pbr_fs, GL_FRAGMENT_SHADER),
         )
 
         grid_vs = self.grid_vertex_shader_source()
         grid_fs = self.grid_fragment_shader_source()
         self.grid_shader = compileProgram(
             compileShader(grid_vs, GL_VERTEX_SHADER),
-            compileShader(grid_fs, GL_FRAGMENT_SHADER)
+            compileShader(grid_fs, GL_FRAGMENT_SHADER),
         )
 
         light_vs = self.light_vertex_shader_source()
         light_fs = self.light_fragment_shader_source()
         self.light_shader = compileProgram(
             compileShader(light_vs, GL_VERTEX_SHADER),
-            compileShader(light_fs, GL_FRAGMENT_SHADER)
+            compileShader(light_fs, GL_FRAGMENT_SHADER),
         )
 
     def init_geometry(self):
@@ -70,29 +71,29 @@ class Renderer:
         positions = []
         normals = []
         indices = []
-        
+
         rings = self.scene.sphere_rings
         segments = self.scene.sphere_segments
         radius = self.scene.sphere_radius
-        
+
         # Generate vertices
         for r in range(rings + 1):
             phi = glm.pi() * r / rings
             y = glm.cos(phi) * radius
-            
+
             ring_radius = glm.sin(phi) * radius
-            
+
             for s in range(segments + 1):
                 theta = 2 * glm.pi() * s / segments
                 x = ring_radius * glm.cos(theta)
                 z = ring_radius * glm.sin(theta)
-                
+
                 positions.extend([x, y, z])
-                
+
                 # Normal is the normalized position (for a sphere centered at origin)
                 norm = glm.normalize(glm.vec3(x, y, z))
                 normals.extend([norm.x, norm.y, norm.z])
-        
+
         # Generate indices
         for r in range(rings):
             for s in range(segments):
@@ -101,36 +102,51 @@ class Renderer:
                 i1 = r * (segments + 1) + s + 1
                 i2 = (r + 1) * (segments + 1) + s
                 i3 = (r + 1) * (segments + 1) + s + 1
-                
+
                 # Two triangles per quad
                 indices.extend([i0, i2, i1])
                 indices.extend([i1, i2, i3])
-        
+
         self.sphere_index_count = len(indices)
-        
+
         # Create VAO
         self.sphere_vao = glGenVertexArrays(1)
         glBindVertexArray(self.sphere_vao)
-        
+
         # Position VBO
         self.sphere_vbo = glGenBuffers(1)
         glBindBuffer(GL_ARRAY_BUFFER, self.sphere_vbo)
-        glBufferData(GL_ARRAY_BUFFER, len(positions) * 4, np.array(positions, dtype=np.float32), GL_STATIC_DRAW)
+        glBufferData(
+            GL_ARRAY_BUFFER,
+            len(positions) * 4,
+            np.array(positions, dtype=np.float32),
+            GL_STATIC_DRAW,
+        )
         glEnableVertexAttribArray(0)
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, None)
-        
+
         # Normal VBO
         normal_vbo = glGenBuffers(1)
         glBindBuffer(GL_ARRAY_BUFFER, normal_vbo)
-        glBufferData(GL_ARRAY_BUFFER, len(normals) * 4, np.array(normals, dtype=np.float32), GL_STATIC_DRAW)
+        glBufferData(
+            GL_ARRAY_BUFFER,
+            len(normals) * 4,
+            np.array(normals, dtype=np.float32),
+            GL_STATIC_DRAW,
+        )
         glEnableVertexAttribArray(1)
         glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, None)
-        
+
         # EBO
         self.sphere_ebo = glGenBuffers(1)
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, self.sphere_ebo)
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, len(indices) * 4, np.array(indices, dtype=np.uint32), GL_STATIC_DRAW)
-        
+        glBufferData(
+            GL_ELEMENT_ARRAY_BUFFER,
+            len(indices) * 4,
+            np.array(indices, dtype=np.uint32),
+            GL_STATIC_DRAW,
+        )
+
         glBindVertexArray(0)
 
     def create_grid(self):
@@ -138,53 +154,58 @@ class Renderer:
         positions = []
         size = self.scene.grid_size
         spacing = self.scene.grid_spacing
-        
+
         # Create horizontal lines
         for i in range(-size, size + 1):
             x = i * spacing
             positions.extend([x, 0.0, -size * spacing])
             positions.extend([x, 0.0, size * spacing])
-        
+
         # Create vertical lines
         for i in range(-size, size + 1):
             z = i * spacing
             positions.extend([-size * spacing, 0.0, z])
             positions.extend([size * spacing, 0.0, z])
-        
+
         self.grid_vertex_count = len(positions) // 3
-        
+
         # Create VAO
         self.grid_vao = glGenVertexArrays(1)
         glBindVertexArray(self.grid_vao)
-        
+
         self.grid_vbo = glGenBuffers(1)
         glBindBuffer(GL_ARRAY_BUFFER, self.grid_vbo)
-        glBufferData(GL_ARRAY_BUFFER, len(positions) * 4, np.array(positions, dtype=np.float32), GL_STATIC_DRAW)
+        glBufferData(
+            GL_ARRAY_BUFFER,
+            len(positions) * 4,
+            np.array(positions, dtype=np.float32),
+            GL_STATIC_DRAW,
+        )
         glEnableVertexAttribArray(0)
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, None)
-        
+
         glBindVertexArray(0)
 
     def create_light_sphere(self):
         """Create a small sphere for representing the light position"""
         positions = []
         indices = []
-        
+
         rings = 16
         segments = 16
         radius = self.scene.light_radius
-        
+
         for r in range(rings + 1):
             phi = glm.pi() * r / rings
             y = glm.cos(phi) * radius
             ring_radius = glm.sin(phi) * radius
-            
+
             for s in range(segments + 1):
                 theta = 2 * glm.pi() * s / segments
                 x = ring_radius * glm.cos(theta)
                 z = ring_radius * glm.sin(theta)
                 positions.extend([x, y, z])
-        
+
         for r in range(rings):
             for s in range(segments):
                 i0 = r * (segments + 1) + s
@@ -193,22 +214,32 @@ class Renderer:
                 i3 = (r + 1) * (segments + 1) + s + 1
                 indices.extend([i0, i2, i1])
                 indices.extend([i1, i2, i3])
-        
+
         self.light_index_count = len(indices)
-        
+
         self.light_vao = glGenVertexArrays(1)
         glBindVertexArray(self.light_vao)
-        
+
         self.light_vbo = glGenBuffers(1)
         glBindBuffer(GL_ARRAY_BUFFER, self.light_vbo)
-        glBufferData(GL_ARRAY_BUFFER, len(positions) * 4, np.array(positions, dtype=np.float32), GL_STATIC_DRAW)
+        glBufferData(
+            GL_ARRAY_BUFFER,
+            len(positions) * 4,
+            np.array(positions, dtype=np.float32),
+            GL_STATIC_DRAW,
+        )
         glEnableVertexAttribArray(0)
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, None)
-        
+
         self.light_ebo = glGenBuffers(1)
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, self.light_ebo)
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, len(indices) * 4, np.array(indices, dtype=np.uint32), GL_STATIC_DRAW)
-        
+        glBufferData(
+            GL_ELEMENT_ARRAY_BUFFER,
+            len(indices) * 4,
+            np.array(indices, dtype=np.uint32),
+            GL_STATIC_DRAW,
+        )
+
         glBindVertexArray(0)
 
     def render(self, camera):
@@ -228,12 +259,27 @@ class Renderer:
     def render_grid(self, view, projection):
         """Render the grid"""
         glUseProgram(self.grid_shader)
-        
+
         model = glm.mat4(1.0)
-        glUniformMatrix4fv(glGetUniformLocation(self.grid_shader, "model"), 1, GL_FALSE, glm.value_ptr(model))
-        glUniformMatrix4fv(glGetUniformLocation(self.grid_shader, "view"), 1, GL_FALSE, glm.value_ptr(view))
-        glUniformMatrix4fv(glGetUniformLocation(self.grid_shader, "projection"), 1, GL_FALSE, glm.value_ptr(projection))
-        
+        glUniformMatrix4fv(
+            glGetUniformLocation(self.grid_shader, "model"),
+            1,
+            GL_FALSE,
+            glm.value_ptr(model),
+        )
+        glUniformMatrix4fv(
+            glGetUniformLocation(self.grid_shader, "view"),
+            1,
+            GL_FALSE,
+            glm.value_ptr(view),
+        )
+        glUniformMatrix4fv(
+            glGetUniformLocation(self.grid_shader, "projection"),
+            1,
+            GL_FALSE,
+            glm.value_ptr(projection),
+        )
+
         glBindVertexArray(self.grid_vao)
         glDrawArrays(GL_LINES, 0, self.grid_vertex_count)
         glBindVertexArray(0)
@@ -246,33 +292,75 @@ class Renderer:
         model = glm.translate(glm.mat4(1.0), self.scene.sphere_pos)
 
         # Set uniforms
-        glUniformMatrix4fv(glGetUniformLocation(self.pbr_shader, "model"), 1, GL_FALSE, glm.value_ptr(model))
-        glUniformMatrix4fv(glGetUniformLocation(self.pbr_shader, "view"), 1, GL_FALSE, glm.value_ptr(view))
-        glUniformMatrix4fv(glGetUniformLocation(self.pbr_shader, "projection"), 1, GL_FALSE, glm.value_ptr(projection))
+        glUniformMatrix4fv(
+            glGetUniformLocation(self.pbr_shader, "model"),
+            1,
+            GL_FALSE,
+            glm.value_ptr(model),
+        )
+        glUniformMatrix4fv(
+            glGetUniformLocation(self.pbr_shader, "view"),
+            1,
+            GL_FALSE,
+            glm.value_ptr(view),
+        )
+        glUniformMatrix4fv(
+            glGetUniformLocation(self.pbr_shader, "projection"),
+            1,
+            GL_FALSE,
+            glm.value_ptr(projection),
+        )
 
         # Material uniforms
-        glUniform3f(glGetUniformLocation(self.pbr_shader, "albedo"),
-                   self.scene.albedo.x, self.scene.albedo.y, self.scene.albedo.z)
-        glUniform1f(glGetUniformLocation(self.pbr_shader, "metallic"), self.scene.metallic)
-        glUniform1f(glGetUniformLocation(self.pbr_shader, "roughness"), self.scene.roughness)
+        glUniform3f(
+            glGetUniformLocation(self.pbr_shader, "albedo"),
+            self.scene.albedo.x,
+            self.scene.albedo.y,
+            self.scene.albedo.z,
+        )
+        glUniform1f(
+            glGetUniformLocation(self.pbr_shader, "metallic"), self.scene.metallic
+        )
+        glUniform1f(
+            glGetUniformLocation(self.pbr_shader, "roughness"), self.scene.roughness
+        )
         glUniform1f(glGetUniformLocation(self.pbr_shader, "ao"), self.scene.ao)
 
         # Light uniforms
-        glUniform3f(glGetUniformLocation(self.pbr_shader, "lightPositions[0]"),
-                   self.scene.light_pos.x, self.scene.light_pos.y, self.scene.light_pos.z)
-        glUniform3f(glGetUniformLocation(self.pbr_shader, "lightColors[0]"),
-                   self.scene.light_color.x * self.scene.light_intensity,
-                   self.scene.light_color.y * self.scene.light_intensity,
-                   self.scene.light_color.z * self.scene.light_intensity)
+        glUniform3f(
+            glGetUniformLocation(self.pbr_shader, "lightPositions[0]"),
+            self.scene.light_pos.x,
+            self.scene.light_pos.y,
+            self.scene.light_pos.z,
+        )
+        glUniform3f(
+            glGetUniformLocation(self.pbr_shader, "lightColors[0]"),
+            self.scene.light_color.x * self.scene.light_intensity,
+            self.scene.light_color.y * self.scene.light_intensity,
+            self.scene.light_color.z * self.scene.light_intensity,
+        )
 
         # Attenuation
-        glUniform1f(glGetUniformLocation(self.pbr_shader, "lightConstant"), self.scene.light_attenuation_const)
-        glUniform1f(glGetUniformLocation(self.pbr_shader, "lightLinear"), self.scene.light_attenuation_linear)
-        glUniform1f(glGetUniformLocation(self.pbr_shader, "lightQuadratic"), self.scene.light_attenuation_quad)
+        glUniform1f(
+            glGetUniformLocation(self.pbr_shader, "lightConstant"),
+            self.scene.light_attenuation_const,
+        )
+        glUniform1f(
+            glGetUniformLocation(self.pbr_shader, "lightLinear"),
+            self.scene.light_attenuation_linear,
+        )
+        glUniform1f(
+            glGetUniformLocation(self.pbr_shader, "lightQuadratic"),
+            self.scene.light_attenuation_quad,
+        )
 
         # Camera position
-        glUniform3f(glGetUniformLocation(self.pbr_shader, "camPos"),
-                   camera.position.x, camera.position.y, camera.position.z)
+        glUniform3f(
+            glGetUniformLocation(self.pbr_shader, "camPos"),
+            camera.position.x,
+            camera.position.y,
+            camera.position.z,
+        )
 
         glBindVertexArray(self.sphere_vao)
         glDrawElements(GL_TRIANGLES, self.sphere_index_count, GL_UNSIGNED_INT, None)
@@ -281,15 +369,34 @@ class Renderer:
     def render_light_sphere(self, view, projection):
         """Render light position indicator"""
         glUseProgram(self.light_shader)
-        
+
         model = glm.translate(glm.mat4(1.0), self.scene.light_pos)
-        
-        glUniformMatrix4fv(glGetUniformLocation(self.light_shader, "model"), 1, GL_FALSE, glm.value_ptr(model))
-        glUniformMatrix4fv(glGetUniformLocation(self.light_shader, "view"), 1, GL_FALSE, glm.value_ptr(view))
-        glUniformMatrix4fv(glGetUniformLocation(self.light_shader, "projection"), 1, GL_FALSE, glm.value_ptr(projection))
-        glUniform3f(glGetUniformLocation(self.light_shader, "lightColor"),
-                   self.scene.light_color.x, self.scene.light_color.y, self.scene.light_color.z)
-        
+
+        glUniformMatrix4fv(
+            glGetUniformLocation(self.light_shader, "model"),
+            1,
+            GL_FALSE,
+            glm.value_ptr(model),
+        )
+        glUniformMatrix4fv(
+            glGetUniformLocation(self.light_shader, "view"),
+            1,
+            GL_FALSE,
+            glm.value_ptr(view),
+        )
+        glUniformMatrix4fv(
+            glGetUniformLocation(self.light_shader, "projection"),
+            1,
+            GL_FALSE,
+            glm.value_ptr(projection),
+        )
+        glUniform3f(
+            glGetUniformLocation(self.light_shader, "lightColor"),
+            self.scene.light_color.x,
+            self.scene.light_color.y,
+            self.scene.light_color.z,
+        )
+
         glBindVertexArray(self.light_vao)
         glDrawElements(GL_TRIANGLES, self.light_index_count, GL_UNSIGNED_INT, None)
         glBindVertexArray(0)
