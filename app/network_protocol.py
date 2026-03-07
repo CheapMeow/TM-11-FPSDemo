@@ -18,6 +18,7 @@ class MessageTypes:
     PLAYER_JOINED = 0x13
     PLAYER_LEFT = 0x14
     DELAY_UPDATE = 0x15
+    MOVE_SPEED_UPDATE = 0x16
 
 
 def pack_move_request(player_id, dx, dy, dz):
@@ -100,6 +101,16 @@ def pack_delay_update(player_id, delay_ms):
         'type': MessageTypes.DELAY_UPDATE,
         'player_id': player_id,
         'delay_ms': delay_ms
+    }).encode('utf-8')
+    length = struct.pack('!I', len(data))
+    return length + data
+
+
+def pack_move_speed_update(move_speed):
+    """Pack move speed update notification"""
+    data = json.dumps({
+        'type': MessageTypes.MOVE_SPEED_UPDATE,
+        'move_speed': move_speed
     }).encode('utf-8')
     length = struct.pack('!I', len(data))
     return length + data

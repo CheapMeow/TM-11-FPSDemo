@@ -15,6 +15,7 @@ from app.network_protocol import (
     pack_player_joined,
     pack_player_left,
     pack_delay_update,
+    pack_move_speed_update,
     receive_message
 )
 import imgui
@@ -275,11 +276,24 @@ class ServerApp:
         
         # Game settings
         if imgui.collapsing_header("Game Settings"):
-            _, self.move_speed = imgui.slider_float("Move Speed", self.move_speed, 1.0, 20.0)
+            speed_changed, new_move_speed = imgui.slider_float("Move Speed", self.move_speed, 1.0, 20.0)
             
-            # Update all players' speed
-            for player in self.players.values():
-                player.move_speed = self.move_speed
+            if speed_changed:
+                self.move_speed = new_move_speed
+                # Update all players' speed
+                for player in self.players.values():
+                    player.move_speed = self.move_speed
+                
+                # Broadcast move speed update to all clients
+                move_speed_update = pack_move_speed_update(self.move_speed)
+                for pid, sock in self.clients.items():
+                    try:
+                        # Simulate delay before sending
+                        time.sleep(self.client_delays[pid])
+                        sock.sendall(move_speed_update)
+                        print(f"Sent move speed update ({self.move_speed}) to player {pid}")
+                    except Exception as e:
+                        print(f"Failed to send move speed update to player {pid}: {e}")
         
         # Client delay settings
         if imgui.collapsing_header("Client Delays (ms)"):

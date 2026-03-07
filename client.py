@@ -288,6 +288,14 @@ class ClientApp:
                         self.network_delay_ms = delay_ms
                         print(f"Network delay updated to {delay_ms}ms")
                 
+                elif msg_type == MessageTypes.MOVE_SPEED_UPDATE:
+                    # Move speed update from server
+                    move_speed = message.get('move_speed', 5.0)
+                    # Update all players' speed
+                    for player in self.players.values():
+                        player.move_speed = move_speed
+                    print(f"Move speed updated to {move_speed}")
+                
             except Exception as e:
                 if self.connected:
                     print(f"Connection lost: {e}")
